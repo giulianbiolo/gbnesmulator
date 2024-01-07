@@ -49,6 +49,14 @@ trait FlagArithmetic {
     fn update_zero_and_negative_flags(&mut self, result: u8);
 }
 
+trait Instructions {
+    fn lda(&mut self, mode: &AddressingMode);
+    fn sta(&mut self, mode: &AddressingMode);
+    fn tax(&mut self);
+    fn inx(&mut self);
+    fn adc(&mut self, mode: &AddressingMode);
+}
+
 pub struct CPU {
     pub register_a: u8,
     pub register_x: u8,
@@ -75,6 +83,29 @@ impl FlagArithmetic for CPU {
         if result & 0b1000_0000 != 0 { self.set_flag(StatusFlag::Negative, true); }
         else { self.set_flag(StatusFlag::Negative, false); }
     }
+}
+
+impl Instructions for CPU {
+    fn lda(&mut self, mode: &AddressingMode) {
+        let addr: u16 = self.get_operand_address(mode);
+        let value: u8 = self.mem_read(addr);
+        self.register_a = value;
+        self.update_zero_and_negative_flags(self.register_a);
+    }
+    fn sta(&mut self, mode: &AddressingMode) {
+        let addr: u16 = self.get_operand_address(mode);
+        self.mem_write(addr, self.register_a);
+    }
+    fn tax(&mut self) {
+        self.register_x = self.register_a;
+        self.update_zero_and_negative_flags(self.register_x);
+    }
+    fn inx(&mut self) {
+        self.register_x = self.register_x.wrapping_add(1);
+        self.update_zero_and_negative_flags(self.register_x);
+    }
+    fn adc(&mut self, mode: &AddressingMode) { todo!("ADC Implementation still missing...") }
+    
 }
 
 impl CPU {
@@ -133,46 +164,22 @@ impl CPU {
         }
     }
 
+    pub fn load(&mut self, program: Vec<u8>) {
+        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_u16(0xFFFC, 0x8000);
+    }
     pub fn reset(&mut self) {
-        // Reset registers and program counter
         self.register_a = 0;
         self.register_x = 0;
         self.register_y = 0;
         self.status = 0;
         self.program_counter = self.mem_read_u16(0xFFFC);
     }
-
-    // Instructions
-    fn lda(&mut self, mode: &AddressingMode) {
-        let addr: u16 = self.get_operand_address(mode);
-        let value: u8 = self.mem_read(addr);
-        self.register_a = value;
-        self.update_zero_and_negative_flags(self.register_a);
-    }
-    fn sta(&mut self, mode: &AddressingMode) {
-        let addr = self.get_operand_address(mode);
-        self.mem_write(addr, self.register_a);
-    }
-    fn tax(&mut self) {
-        self.register_x = self.register_a;
-        self.update_zero_and_negative_flags(self.register_x);
-    }
-    fn inx(&mut self) {
-        self.register_x = self.register_x.wrapping_add(1);
-        self.update_zero_and_negative_flags(self.register_x);
-    }
-
     pub fn load_and_run(&mut self, program: Vec<u8>) {
         self.load(program);
         self.reset();
         self.run()
     }
-
-    pub fn load(&mut self, program: Vec<u8>) {
-        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xFFFC, 0x8000);
-    }
-
     pub fn run(&mut self) {
         let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
         loop {
@@ -180,18 +187,16 @@ impl CPU {
             self.program_counter += 1;
             let program_counter_state: u16 = self.program_counter;
             let opcode: &&opcodes::OpCode = opcodes.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
-
             match code {
                 0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => self.lda(&opcode.mode), // LDA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => self.sta(&opcode.mode), // STA
+                0x69 | 0x65 | 0x75 | 0x6d | 0x7d | 0x79 | 0x61 | 0x71 => self.adc(&opcode.mode), // ADC
                 0xAA =>  self.tax(), // TAX
                 0xE8 => self.inx(), // INX
                 0x00 => return, // BRK
                 _ => todo!()
             }
-            if program_counter_state == self.program_counter {
-                self.program_counter += (opcode.len - 1) as u16;
-            }
+            if program_counter_state == self.program_counter { self.program_counter += (opcode.len - 1) as u16; }
         }
     }
 }
