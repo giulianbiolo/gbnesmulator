@@ -79,10 +79,9 @@ impl NesPPU {
             self.scanline += 1;
             if self.scanline == 241 {
                 self.set_status(StatusFlags::VBlankStarted, true);
-                self.set_status(StatusFlags::SpriteZeroHit, false);
+                self.set_status(StatusFlags::SpriteZeroHit, true);
                 if self.get_flag(ControlFlags::GenerateNMI) {
                     self.nmi_interrupt = Some(1);
-                    // todo!("Should trigger NMI interrupt")
                 }
             }
             if self.scanline >= 262 {
@@ -122,16 +121,21 @@ impl PPU for NesPPU {
     fn write_to_data(&mut self, value: u8) {
         let addr: u16 = self.addr.get();
         match addr {
-            0..=0x1fff => println!("attempt to write to chr rom space {}", addr), 
+            0..=0x1fff => println!("attempt to write to chr rom space {:X}", addr), 
             0x2000..=0x2fff => { self.vram[self.mirror_vram_addr(addr) as usize] = value; },
-            0x3000..=0x3eff => panic!("addr {} shouldn't be used in reality", addr),
+            
+            
+            //0x3000..=0x3eff => panic!("addr {:X} shouldn't be used in reality", addr),
+            0x3000..=0x3eff => { self.vram[self.mirror_vram_addr(addr) as usize] = value; },
+            
+            
             //Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C
             0x3f10 | 0x3f14 | 0x3f18 | 0x3f1c => {
                 let add_mirror = addr - 0x10;
                 self.palette_table[(add_mirror - 0x3f00) as usize] = value;
             },
             0x3f00..=0x3fff => { self.palette_table[(addr - 0x3f00) as usize] = value; },
-            _ => panic!("unexpected access to mirrored space {}", addr),
+            _ => panic!("unexpected access to mirrored space {:X}", addr),
         }
         self.increment_vram_addr();
     }
@@ -149,13 +153,21 @@ impl PPU for NesPPU {
                 self.internal_data_buf = self.vram[self.mirror_vram_addr(addr) as usize];
                 result
             }
-            0x3000..=0x3eff => panic!("Addr space 0x3000..=0x3eff is not supposed to be used, requested = {}", addr),
+
+            //0x3000..=0x3eff => panic!("Addr space 0x3000..=0x3eff is not supposed to be used, requested = {:X}", addr),
+            0x3000..=0x3eff => {
+                let result: u8 = self.internal_data_buf;
+                self.internal_data_buf = self.vram[self.mirror_vram_addr(addr) as usize];
+                result
+            }
+
+
             0x3f10 | 0x3f14 | 0x3f18 | 0x3f1c => {
                 let addr_mirror: u16 = addr - 0x10;
                 self.palette_table[(addr_mirror - 0x3f00) as usize]
             }
             0x3f00..=0x3fff => { self.palette_table[(addr - 0x3f00) as usize] } // ! need to check this
-            _ => panic!("Unexpected access to mirrored space: {}", addr)
+            _ => panic!("Unexpected access to mirrored space: {:X}", addr)
         }
     }
     fn write_oam_dma(&mut self, data: &[u8; 256]) {

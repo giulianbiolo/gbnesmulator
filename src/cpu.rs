@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::{opcodes, bus::Bus};
+use crate::{opcodes, bus::Bus, trace};
 
 
 const STACK: u16 = 0x0100;
@@ -105,6 +105,7 @@ trait Instructions {
     fn rla(&mut self, mode: &AddressingMode);
     fn sre(&mut self, mode: &AddressingMode);
     fn rra(&mut self, mode: &AddressingMode);
+    fn brk(&mut self);
 }
 
 pub struct CPU<'a> {
@@ -429,6 +430,13 @@ impl Instructions for CPU<'_> {
         let value: u8 = self.mem_read(addr);
         self.add_to_register_a(value);
     }
+    fn brk(&mut self) {
+        self.program_counter += 1;
+        self.stack_push_u16(self.program_counter);
+        self.set_flag(StatusFlag::Break, true);
+        self.stack_push(self.status);
+        self.program_counter = self.mem_read_u16(0xFFFE);
+    }
 }
 
 mod interrupt {
@@ -602,12 +610,9 @@ impl<'a> CPU<'a> {
     fn interrupt(&mut self, interrupt: interrupt::Interrupt) {
         self.stack_push_u16(self.program_counter);
         let mut flag: u8 = self.status.clone();
-        // flag.set(CpuFlags::BREAK, interrupt.b_flag_mask & 0b010000 == 1);
-        // flag.set(CpuFlags::BREAK2, interrupt.b_flag_mask & 0b100000 == 1);
         if interrupt.b_flag_mask & 0b010000 == 1 { flag |= 0b010000; }
         if interrupt.b_flag_mask & 0b100000 == 1 { flag |= 0b100000; }
         self.stack_push(flag);
-        // self.status.insert(CpuFlags::INTERRUPT_DISABLE);
         self.set_flag(StatusFlag::InterruptDisable, true);
         self.bus.tick(interrupt.cpu_cycles);
         self.program_counter = self.mem_read_u16(interrupt.vector_addr);
@@ -637,14 +642,18 @@ impl<'a> CPU<'a> {
         let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
         loop {
             if let Some(_nmi) = self.bus.poll_nmi_status() { self.interrupt(interrupt::NMI); }
-            callback(self);
+            //callback(self);
+         //   println!("{}", trace::trace(self));
             let code: u8 = self.mem_read(self.program_counter);
+            //if self.program_counter != 0x8150 && self.program_counter != 0x8153 && self.program_counter != 0x8155{
+            //println!("code: {:X}, pc:{:X}", code, self.program_counter);
+            //}
             self.program_counter += 1;
             let program_counter_state: u16 = self.program_counter;
             let opcode: &&opcodes::OpCode = opcodes.get(&code).expect(&format!("OpCode 0x{:X} is not recognized", code));
             // Print the current state of the CPU
-            let v1 = self.mem_read(self.program_counter + 1);
-            let v2 = self.mem_read(self.program_counter + 2);
+            //let v1 = self.mem_read(self.program_counter + 1);
+            //let v2 = self.mem_read(self.program_counter + 2);
             //println!("A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PC:{:04X} ({:?} | {:X} {:X} {:X})",
             //         self.register_a, self.register_x, self.register_y, self.status, self.stack_pointer, self.program_counter, opcode.mnemonic, code, v1, v2);
             match code {
@@ -732,7 +741,7 @@ impl<'a> CPU<'a> {
                 0x8A =>  self.txa(), // TXA
                 0x9A =>  self.txs(), // TXS
                 0x98 =>  self.tya(), // TYA
-                0x00 => return, // BRK
+                0x00 => self.brk(), // BRK
                 // Unofficial opcodes
                 0x04 | 0x44 | 0x64 | 0x14 | 0x34 | 0x54 | 0x74 | 0xd4 | 0xf4 | 0x80 | 0x82 | 0x89 | 0xC2 | 0xE2 => { }, // *NOP = DOP
                 0x0C | 0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => { }, // *NOP = TOP

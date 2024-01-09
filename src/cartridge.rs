@@ -19,9 +19,7 @@ pub struct Rom {
 
 impl Rom {
     pub fn new(raw: &Vec<u8>) -> Result<Rom, String> {
-        if &raw[0..4] != NES_TAG {
-            return Err("File is not in iNES file format".to_string());
-        }
+        if &raw[0..4] != NES_TAG { return Err("File is not in iNES file format".to_string()); }
 
         let mapper = (raw[7] & 0b1111_0000) | (raw[6] >> 4);
         println!("Mapper: {}", mapper);
@@ -39,6 +37,7 @@ impl Rom {
             (false, false) => Mirroring::HORIZONTAL,
         };
 
+        println!("ROM Size: {}x16k, CHR Size: {}x8k", raw[4], raw[5]);
         let prg_rom_size = raw[4] as usize * PRG_ROM_PAGE_SIZE;
         let chr_rom_size = raw[5] as usize * CHR_ROM_PAGE_SIZE;
 
