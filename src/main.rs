@@ -1,3 +1,4 @@
+use std::time::{Duration, Instant};
 use std::collections::HashMap;
 
 use apu::APU;
@@ -55,7 +56,7 @@ fn main() {
         .unwrap();
 
     //load the game
-    let bytes: Vec<u8> = std::fs::read("games/apu_test.nes").unwrap();
+    let bytes: Vec<u8> = std::fs::read("games/pacman.nes").unwrap();
     let rom: Rom = Rom::new(&bytes).unwrap();
     
     let mut frame: Frame = Frame::new();
@@ -76,13 +77,28 @@ fn main() {
     // * Save to a file the audio buffer for debugging
     //let filename = "audio.bin";
     //let mut file = std::fs::File::create(filename).unwrap();
-    //let mut timing: std::time::Instant = std::time::Instant::now();
-
+    // * Code for timing the game loop (VSYNC)
+    // ****************
+    let vsync: Duration = Duration::from_secs_f32(1.0 / 60.0);
+    let mut last_frame: Instant = Instant::now();
+    // ****************
     let bus: Bus<'_> = Bus::new(rom, move |ppu: &NesPPU, apu: &mut APU, joypad: &mut joypad::Joypad| {
+        // * Code for timing the game loop (VSYNC)
+        // ****************
+        let now: Instant = Instant::now();
+        let elapsed: Duration = now - last_frame;
+        if elapsed < vsync { std::thread::sleep(vsync - elapsed); }
+        last_frame = Instant::now();
+        // ****************
+        // * Code for rendering the game to the screen
+        // ****************
         render::render(ppu, &mut frame);
         texture.update(None, &frame.data, 256 * 3).unwrap();
         canvas.copy(&texture, None, None).unwrap();
         canvas.present();
+        // ****************
+        // * Code for handling input
+        // ****************
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -103,22 +119,27 @@ fn main() {
                 _ => { /* do nothing */ }
             }
         }
+        // ****************
         // * Code for saving buffer to file for debugging
-        /*****************
-        let last_timing: std::time::Duration = timing.elapsed();
-        let audio_buffer_size: usize = apu.buffer.len();
-        println!("Time: {:?}ms\t|FPS: {:2.2}\t|BufSize: {}", last_timing.as_millis(), 1.0_f32 / timing.elapsed().as_secs_f32(), audio_buffer_size);
-        timing = std::time::Instant::now();
-        for f in apu.buffer.iter() {
-            let bytes: [u8; 4] = unsafe { std::mem::transmute(*f) };
-            file.write_all(&bytes).unwrap();
-        }
-        ****************/
-
+        // ****************
+        //let last_timing: Duration = timing.elapsed();
+        //let audio_buffer_size: usize = apu.buffer.len();
+        //println!("Time: {:?}ms\t|FPS: {:2.2}\t|BufSize: {}", last_timing.as_millis(), 1.0_f32 / timing.elapsed().as_secs_f32(), audio_buffer_size);
+        //timing = Instant::now();
+        //for f in apu.buffer.iter() {
+        //    let bytes: [u8; 4] = unsafe { std::mem::transmute(*f) };
+        //    file.write_all(&bytes).unwrap();
+        //}
+        // ****************
+        // * Code for playing audio
+        // ****************
         let sound: NesSound = NesSound { buffer: apu.buffer.clone() };
-        sink.append(sound.amplify(0.1));
-        //let _ = stream_handle.play_raw(source);
+        sink.append(sound.amplify(0.2));
+        // ****************
+        // * Code for clearing the audio buffer
+        // ****************
         apu.buffer.clear();
+        // ****************
     });
     let mut cpu: CPU = CPU::new(bus);
     cpu.reset();
