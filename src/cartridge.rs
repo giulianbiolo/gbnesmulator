@@ -21,10 +21,10 @@ impl Rom {
     pub fn new(raw: &Vec<u8>) -> Result<Rom, String> {
         if &raw[0..4] != NES_TAG { return Err("File is not in iNES file format".to_string()); }
 
-        let mapper = (raw[7] & 0b1111_0000) | (raw[6] >> 4);
+        let mapper: u8 = (raw[7] & 0b1111_0000) | (raw[6] >> 4);
         println!("Mapper: {}", mapper);
 
-        let ines_ver = (raw[7] >> 2) & 0b11;
+        let ines_ver: u8 = (raw[7] >> 2) & 0b11;
         if ines_ver != 0 {
             return Err("NES2.0 format is not supported".to_string());
         }
@@ -38,7 +38,7 @@ impl Rom {
         };
 
         println!("ROM Size: {}x16k, CHR Size: {}x8k", raw[4], raw[5]);
-        let prg_rom_size = raw[4] as usize * PRG_ROM_PAGE_SIZE;
+        let prg_rom_size: usize = raw[4] as usize * PRG_ROM_PAGE_SIZE;
         let chr_rom_size = raw[5] as usize * CHR_ROM_PAGE_SIZE;
 
         let skip_trainer = raw[6] & 0b100 != 0;
@@ -52,6 +52,10 @@ impl Rom {
             mapper,
             screen_mirroring,
         })
+    }
+    pub fn read_prg_byte(&self, address: u16) -> u8 {
+        let address: usize = address as usize;
+        self.prg_rom[address % self.prg_rom.len()]
     }
 }
 

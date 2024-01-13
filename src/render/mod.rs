@@ -37,12 +37,12 @@ fn sprite_palette(ppu: &NesPPU, pallete_idx: u8) -> [u8; 4] {
 }
 
 struct Rect {
-    x1: isize,
-    y1: isize,
-    x2: isize,
-    y2: isize,
+    x1: usize,
+    y1: usize,
+    x2: usize,
+    y2: usize,
 }
-impl Rect { fn new(x1: isize, y1: isize, x2: isize, y2: isize) -> Self { Rect { x1, y1, x2, y2 } } }
+impl Rect { fn new(x1: usize, y1: usize, x2: usize, y2: usize) -> Self { Rect { x1, y1, x2, y2 } } }
 
 fn render_name_table(ppu: &NesPPU, frame: &mut Frame, name_table: &[u8], 
     view_port: Rect, shift_x: isize, shift_y: isize) {
@@ -72,8 +72,8 @@ fn render_name_table(ppu: &NesPPU, frame: &mut Frame, name_table: &[u8],
                     3 => palette::SYSTEM_PALLETE[palette[3] as usize],
                     _ => panic!("can't be"),
                 };
-                let pixel_x: isize = (tile_column as isize) * 8 + x;
-                let pixel_y: isize = (tile_row as isize) * 8 + (y as isize);
+                let pixel_x: usize = tile_column * 8 + x;
+                let pixel_y: usize = tile_row * 8 + y;
 
                 if pixel_x >= view_port.x1 && pixel_x < view_port.x2 && pixel_y >= view_port.y1 && pixel_y < view_port.y2 {
                     frame.set_pixel((shift_x + pixel_x as isize) as usize, (shift_y + pixel_y as isize) as usize, rgb);
@@ -84,9 +84,9 @@ fn render_name_table(ppu: &NesPPU, frame: &mut Frame, name_table: &[u8],
 }
 
 pub fn render(ppu: &NesPPU, frame: &mut Frame) {
-    let scroll_x: isize = (ppu.scroll.scroll_x) as isize;
-    let scroll_y: isize = (ppu.scroll.scroll_y) as isize;
-    println!("Scroll: ({}, {})", scroll_x, scroll_y);
+    let scroll_x: usize = (ppu.scroll.scroll_x) as usize;
+    let scroll_y: usize = (ppu.scroll.scroll_y) as usize;
+    // println!("Scroll: ({}, {})", scroll_x, scroll_y);
 
     let (main_nametable, second_nametable) = match (&ppu.mirroring, ppu.nametable_addr()) {
         (Mirroring::VERTICAL, 0x2000) | (Mirroring::VERTICAL, 0x2800) | (Mirroring::HORIZONTAL, 0x2000) | (Mirroring::HORIZONTAL, 0x2400) => {

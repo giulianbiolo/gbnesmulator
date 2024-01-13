@@ -13,8 +13,9 @@ impl ScrollRegister {
         }
     }
     pub fn write(&mut self, data: u8) {
-        if !self.latch { self.scroll_x = data; }
-        else { self.scroll_y = data; }
+        // if data == 0 { return; }
+        if !self.latch { self.scroll_x = data; /*println!("Set X to {}", data);*/ }
+        else { self.scroll_y = data; /*println!("Set Y to {}", data);*/ }
         self.latch = !self.latch;
     }
     pub fn reset_latch(&mut self) { self.latch = false; }

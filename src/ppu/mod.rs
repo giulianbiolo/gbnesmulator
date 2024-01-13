@@ -72,6 +72,7 @@ impl NesPPU {
             _ => vram_index,
         }
     }
+    /*
     pub fn tick(&mut self, cycles: u8) -> bool {
         self.cycles += cycles as usize;
         if self.cycles >= 341 {
@@ -79,7 +80,7 @@ impl NesPPU {
             self.scanline += 1;
             if self.scanline == 241 {
                 self.set_status(StatusFlags::VBlankStarted, true);
-                self.set_status(StatusFlags::SpriteZeroHit, true);
+                self.set_status(StatusFlags::SpriteZeroHit, false); // set true for bugfix
                 if self.get_flag(ControlFlags::GenerateNMI) {
                     self.nmi_interrupt = Some(1);
                 }
@@ -94,7 +95,37 @@ impl NesPPU {
         }
         return false;
     }
+    */
+    pub fn tick(&mut self, cycles: u8) -> bool {
+        self.cycles += cycles as usize;
+        if self.cycles >= 341 {
+            if self.is_sprite_0_hit(self.cycles) { self.set_status(StatusFlags::SpriteZeroHit, true); }
+
+            self.cycles = self.cycles - 341;
+            self.scanline += 1;
+
+            if self.scanline == 241 {
+                self.set_status(StatusFlags::VBlankStarted, true);
+                // self.set_status(StatusFlags::SpriteZeroHit, false);
+                if self.get_flag(ControlFlags::GenerateNMI) { self.nmi_interrupt = Some(1); }
+            }
+
+            if self.scanline >= 262 {
+                self.scanline = 0;
+                self.nmi_interrupt = None;
+                self.set_status(StatusFlags::SpriteZeroHit, false);
+                self.set_status(StatusFlags::VBlankStarted, false);
+                return true;
+            }
+        }
+        return false;
+    }
     pub fn poll_nmi_interrupt(&mut self) -> Option<u8> { self.nmi_interrupt.take() }
+    fn is_sprite_0_hit(&self, cycle: usize) -> bool {
+        let y = self.oam_data[0] as usize;
+        let x = self.oam_data[3] as usize;
+        (y == self.scanline as usize) && x <= cycle && self.get_mask(MaskFlags::ShowSprites)
+    }
 }
 impl PPU for NesPPU {
     fn write_to_ctrl(&mut self, value: u8) {
@@ -123,12 +154,10 @@ impl PPU for NesPPU {
         match addr {
             0..=0x1fff => println!("attempt to write to chr rom space {:X}", addr), 
             0x2000..=0x2fff => { self.vram[self.mirror_vram_addr(addr) as usize] = value; },
-            
-            
+
             //0x3000..=0x3eff => panic!("addr {:X} shouldn't be used in reality", addr),
             0x3000..=0x3eff => { self.vram[self.mirror_vram_addr(addr) as usize] = value; },
-            
-            
+
             //Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C
             0x3f10 | 0x3f14 | 0x3f18 | 0x3f1c => {
                 let add_mirror = addr - 0x10;
@@ -160,7 +189,6 @@ impl PPU for NesPPU {
                 self.internal_data_buf = self.vram[self.mirror_vram_addr(addr) as usize];
                 result
             }
-
 
             0x3f10 | 0x3f14 | 0x3f18 | 0x3f1c => {
                 let addr_mirror: u16 = addr - 0x10;

@@ -435,6 +435,7 @@ impl Instructions for CPU<'_> {
         self.stack_push_u16(self.program_counter);
         self.set_flag(StatusFlag::Break, true);
         self.stack_push(self.status);
+        self.set_flag(StatusFlag::InterruptDisable, true);
         self.program_counter = self.mem_read_u16(0xFFFE);
     }
 }
@@ -771,7 +772,7 @@ mod test {
 
     #[test]
     fn test_0xa9_lda_immediate_load_data() {
-        let bus = Bus::new(test::test_rom(), |_, _| {});
+        let bus = Bus::new(test::test_rom(), |_, _, _| {});
         let mut cpu = CPU::new(bus);
         cpu.load_and_run(vec![0xa9, 0x05, 0x00]);
         assert_eq!(cpu.register_a, 5);
@@ -781,7 +782,7 @@ mod test {
 
     #[test]
     fn test_0xaa_tax_move_a_to_x() {
-        let bus = Bus::new(test::test_rom(), |_, _| {});
+        let bus = Bus::new(test::test_rom(), |_, _, _| {});
         let mut cpu = CPU::new(bus);
         cpu.register_a = 10;
         cpu.load_and_run(vec![0xa9, 0x0A,0xaa, 0x00]);
@@ -790,7 +791,7 @@ mod test {
 
     #[test]
     fn test_5_ops_working_together() {
-        let bus = Bus::new(test::test_rom(), |_, _| {});
+        let bus = Bus::new(test::test_rom(), |_, _, _| {});
         let mut cpu = CPU::new(bus);
         cpu.load_and_run(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x00]);
         assert_eq!(cpu.register_x, 0xc1)
@@ -798,7 +799,7 @@ mod test {
 
     #[test]
     fn test_inx_overflow() {
-        let bus = Bus::new(test::test_rom(), |_, _| {});
+        let bus = Bus::new(test::test_rom(), |_, _, _| {});
         let mut cpu = CPU::new(bus);
         cpu.register_x = 0xff;
         cpu.load_and_run(vec![0xe8, 0xe8, 0x00]);
@@ -807,7 +808,7 @@ mod test {
 
     #[test]
     fn test_lda_from_memory() {
-        let bus = Bus::new(test::test_rom(), |_, _| {});
+        let bus = Bus::new(test::test_rom(), |_, _, _| {});
         let mut cpu = CPU::new(bus);
         cpu.mem_write(0x10, 0x55);
         cpu.load_and_run(vec![0xa5, 0x10, 0x00]);
