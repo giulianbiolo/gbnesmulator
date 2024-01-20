@@ -56,7 +56,10 @@ fn main() {
         .unwrap();
 
     //load the game
-    let bytes: Vec<u8> = std::fs::read("games/pacman.nes").unwrap();
+    let filename: String = std::env::args()
+        .nth(1)
+        .expect("Please provide a ROM file as an argument");
+    let bytes: Vec<u8> = std::fs::read(filename).unwrap();
     let rom: Rom = Rom::new(&bytes).unwrap();
     
     let mut frame: Frame = Frame::new();

@@ -6,7 +6,7 @@ const CHR_ROM_PAGE_SIZE: usize = 8192;
 pub enum Mirroring {
     VERTICAL,
     HORIZONTAL,
-    FOUR_SCREEN,
+    FOURSCREEN,
 }
 
 #[derive(Debug, Clone)]
@@ -32,7 +32,7 @@ impl Rom {
         let four_screen = raw[6] & 0b1000 != 0;
         let vertical_mirroring = raw[6] & 0b1 != 0;
         let screen_mirroring = match (four_screen, vertical_mirroring) {
-            (true, _) => Mirroring::FOUR_SCREEN,
+            (true, _) => Mirroring::FOURSCREEN,
             (false, true) => Mirroring::VERTICAL,
             (false, false) => Mirroring::HORIZONTAL,
         };

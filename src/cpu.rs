@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::{opcodes, bus::Bus, trace};
+use crate::{opcodes, bus::Bus};
 
 
 const STACK: u16 = 0x0100;
